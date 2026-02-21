@@ -1,2 +1,5 @@
 python-dotenv
 openai
+azure-identity
+azure-monitor-query
+pandas

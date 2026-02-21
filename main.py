@@ -17,7 +17,7 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 PROMPT = "Give me a very short recipe for a cake please."
 
 response = openai_client.chat.completions.create(
-    model="gpt-5-nano", messages=[{"role": "user", "content": PROMPT}]
+    model="gpt-5", messages=[{"role": "user", "content": PROMPT}]
 )
 
 answer = response.choices[0].message.content
