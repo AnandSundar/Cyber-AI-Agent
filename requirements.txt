@@ -3,3 +3,6 @@ openai
 azure-identity
 azure-monitor-query
 pandas
+tiktoken
+colorama
+
