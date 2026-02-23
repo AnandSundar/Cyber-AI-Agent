@@ -10,6 +10,7 @@ This script coordinates the threat hunting process by:
 
 # Standard library
 import os
+import sys
 import time
 
 # Third-party libraries
@@ -19,11 +20,12 @@ from azure.identity import DefaultAzureCredential
 from azure.monitor.query import LogsQueryClient
 
 # Local modules + MCP
-import utilities
-import model_management
-import prompt_management
+# pylint: disable=wrong-import-order
 import executor
 import guardrails
+import model_management
+import prompt_management
+import utilities
 
 # Build the Log Analytics Client which is used to Query Log Analytics Workspace
 # Requires you to use 'az login' at the command line first and log into Azure
@@ -35,13 +37,14 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Assign the default model to be used.
 # Logic will be used later to select a more appropriate model if needed
+# pylint: disable=invalid-name
 model = model_management.DEFAULT_MODEL
 
-# Get the message from the user (What do you wan to hunt for?)
-user_message = prompt_management.get_user_message()  # TODO: Remove comment
-# user_message = {"role": "user", "content": "Something is messed up in our AAD/Entra ID for the last 2 weeks or so. particularly about user arisa"}
+# Get the message from the user (What do you want to hunt for?)
+user_message = prompt_management.get_user_message()
 
-# return an object that describes the user's request as well as where and how the agent has decided to search
+# return an object that describes the user's request as well as where and how
+# the agent has decided to search
 unformatted_query_context = executor.get_log_query_from_agent(
     openai_client, user_message, model=model
 )
@@ -76,10 +79,10 @@ number_of_records = law_query_results["count"]
 
 print(f"{Fore.WHITE}{number_of_records} record(s) returned.\n")
 
-# Exit the program if no recores are returned
+# Exit the program if no records are returned
 if number_of_records == 0:
     print("Exiting.")
-    exit(0)
+    sys.exit(0)
 
 threat_hunt_user_message = prompt_management.build_threat_hunt_prompt(
     user_prompt=user_message["content"],
@@ -101,7 +104,10 @@ model = model_management.choose_model(model, number_of_tokens)
 
 # Ensure the selected model is allowed / valid
 guardrails.validate_model(model)
-print(f"{Fore.LIGHTGREEN_EX}Initiating cognitive threat hunt against targete logs...\n")
+print(
+    f"{Fore.LIGHTGREEN_EX}Initiating cognitive threat hunt against "
+    "targeted logs...\n"
+)
 
 # Grab the time the analysis started for calculating analysis duration
 start_time = time.time()
@@ -116,19 +122,23 @@ hunt_results = executor.hunt(
 
 # Exit if no hunt results are returned
 if not hunt_results:
-    exit()
+    sys.exit(1)
 
-# Grab the time the anslysis finished and calculated the total time elapsed
+# Grab the time the analysis finished and calculated the total time elapsed
 elapsed = time.time() - start_time
 
-# Notify the user of hunt anaylsis duration and findings
+# Notify the user of hunt analysis duration and findings
+findings_count = len(hunt_results["findings"])
 print(
-    f"{Fore.WHITE}Cognitive hunt complete. Took {elapsed:.2f} seconds and found {Fore.LIGHTRED_EX}{len(hunt_results['findings'])} {Fore.WHITE}potential threat(s)!\n"
+    f"{Fore.WHITE}Cognitive hunt complete. Took {elapsed:.2f} seconds and "
+    f"found {Fore.LIGHTRED_EX}{findings_count} {Fore.WHITE}potential "
+    "threat(s)!\n"
 )
 
 # Pause before displaying the results
 input(
-    f"Press {Fore.LIGHTGREEN_EX}[Enter]{Fore.WHITE} or {Fore.LIGHTGREEN_EX}[Return]{Fore.WHITE} to see results."
+    f"Press {Fore.LIGHTGREEN_EX}[Enter]{Fore.WHITE} or "
+    f"{Fore.LIGHTGREEN_EX}[Return]{Fore.WHITE} to see results."
 )
 
 # Display the threat hunt analysis results.
