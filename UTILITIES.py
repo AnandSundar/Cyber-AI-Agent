@@ -1,3 +1,12 @@
+"""Utilities module for Cyber AI Agent.
+
+This module provides utility functions for:
+- Displaying query context and rationale
+- Displaying and logging detected threats
+- Sanitizing user input to prevent injection attacks
+- Appending threat data to JSONL files
+"""
+
 import json
 from colorama import Fore, Style, init
 
