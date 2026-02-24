@@ -1,28 +1,133 @@
+"""Executor module for threat hunting and log analytics operations.
+
+This module provides functions for interacting with Microsoft Defender for Endpoint,
+Azure Log Analytics, and OpenAI for threat hunting operations.
+"""
+
 # Standard library
 from datetime import timedelta
 import json
+import urllib.parse
 
 # Third-party libraries
 import pandas as pd
+import requests
 from colorama import Fore, Style
 from openai import RateLimitError, OpenAIError
+from azure.identity import DefaultAzureCredential
 
 # Local modules
 import prompt_management
+
+
+def get_bearer_token():
+    """
+    Get an Azure bearer token for Microsoft Defender API authentication.
+
+    Uses DefaultAzureCredential to obtain a token for the Microsoft Defender
+    API endpoint.
+
+    Returns:
+        The authentication token object from Azure Identity.
+    """
+    credential = DefaultAzureCredential()
+    token = credential.get_token("https://api.securitycenter.microsoft.com/.default")
+    return token
+
+
+def get_mde_workstation_id_from_name(token, device_name):
+    """
+    Look up a Defender for Endpoint machine ID by device name.
+
+    Works if the user provides either the FQDN or just the short hostname.
+
+    Args:
+        token: An Azure Identity token (DefaultAzureCredential or similar).
+        device_name (str): Short hostname or full FQDN string.
+
+    Returns:
+        str: The machine ID.
+
+    Raises:
+        ValueError: If no matches are found.
+    """
+    headers = {"Authorization": f"Bearer {token.token}"}
+
+    # Use 'startswith' so "linux-target-1" will match
+    # "linux-target-1.p2zfvso05mlezjev3ck4vqd3kd.cx.internal.cloudapp.net"
+    filter_q = urllib.parse.quote(f"startswith(computerDnsName,'{device_name}')")
+    url = f"https://api.securitycenter.microsoft.com/api/machines?$filter={filter_q}"
+
+    resp = requests.get(url, headers=headers, timeout=30)
+    resp.raise_for_status()
+
+    machines = resp.json().get("value", [])
+    if not machines:
+        raise ValueError(f"No machine found starting with {device_name}")
+
+    # If multiple machines match, pick the first.
+    # You could add logic here (e.g., choose the most recent 'lastSeen').
+    machine_id = machines[0]["id"]
+    return machine_id
+
+
+def quarantine_virtual_machine(token, machine_id):
+    """
+    Quarantine a virtual machine by isolating it in Microsoft Defender.
+
+    Args:
+        token: An Azure Identity token for authentication.
+        machine_id (str): The Microsoft Defender machine ID to isolate.
+
+    Returns:
+        bool: True if isolation was successful, False otherwise.
+    """
+    headers = {
+        "Authorization": f"Bearer {token.token}",
+        "Content-Type": "application/json",
+    }
+
+    # Example: Isolate a machine
+    payload = {
+        "Comment": "Isolation via Python Agentic AI using DefaultAzureCredential",
+        "IsolationType": "Full",
+    }
+
+    resp = requests.post(
+        f"https://api.securitycenter.microsoft.com/api/machines/{machine_id}/isolate",
+        headers=headers,
+        json=payload,
+        timeout=30,
+    )
+
+    if resp.status_code in (200, 201):
+        return True
+    return False
 
 
 def hunt(
     openai_client, threat_hunt_system_message, threat_hunt_user_message, openai_model
 ):
     """
-    Runs the threat hunting flow:
+    Run the threat hunting flow with OpenAI.
+
+    This function:
     1. Formats the logs into a string
     2. Selects appropriate system prompt from context
     3. Passes logs + role to model
     4. Parses and returns a raw array
-    Handles rate-limit/token overage errors gracefully.
-    """
 
+    Handles rate-limit/token overage errors gracefully.
+
+    Args:
+        openai_client: The OpenAI client instance.
+        threat_hunt_system_message: The system message for threat hunting.
+        threat_hunt_user_message: The user message containing logs/context.
+        openai_model (str): The OpenAI model to use.
+
+    Returns:
+        dict or None: Parsed JSON results from the model, or None on error.
+    """
     results = []
 
     messages = [threat_hunt_system_message, threat_hunt_user_message]
@@ -42,16 +147,18 @@ def hunt(
 
         # Print dark red warning
         print(
-            f"{Fore.LIGHTRED_EX}{Style.BRIGHT}🚨ERROR: Rate limit or token overage detected!{Style.RESET_ALL}"
+            f"{Fore.LIGHTRED_EX}{Style.BRIGHT}"
+            f"🚨ERROR: Rate limit or token overage detected!{Style.RESET_ALL}"
         )
         print(
-            f"{Fore.LIGHTRED_EX}{Style.BRIGHT}The input was too large for this model or hit rate limits."
+            f"{Fore.LIGHTRED_EX}{Style.BRIGHT}"
+            f"The input was too large for this model or hit rate limits."
         )
         print(f"{Style.RESET_ALL}——————————\nRaw Error:\n{error_msg}\n——————————")
         print(f"{Fore.WHITE}Suggestions:")
-        print(f"- Use fewer logs or reduce input size.")
-        print(f"- Switch to a model with a larger context window.")
-        print(f"- Retry later if rate-limited.\n")
+        print("- Use fewer logs or reduce input size.")
+        print("- Switch to a model with a larger context window.")
+        print("- Retry later if rate-limited.\n")
 
         return None  # You can also choose to raise again or exit
 
@@ -60,16 +167,27 @@ def hunt(
         return None
 
 
-# Extract and parse the function call selected by the LLM.
-# This tool call is part of OpenAI's function calling feature, where the model chooses a tool (function)
-# from the provided list, and returns the arguments it wants to use to call it.
-# In this case, the function selected queries log data from Microsoft Defender via Log Analytics.
-#
-# Docs: https://platform.openai.com/docs/guides/function-calling
-def get_log_query_from_agent(openai_client, user_message, model):
+def get_query_context(openai_client, user_message, model):
+    """
+    Extract and parse the function call selected by the LLM.
 
+    This tool call is part of OpenAI's function calling feature, where the model
+    chooses a tool (function) from the provided list, and returns the arguments
+    it wants to use to call it.
+
+    Args:
+        openai_client: The OpenAI client instance.
+        user_message: The user's message/request.
+        model (str): The OpenAI model to use.
+
+    Returns:
+        dict: The parsed arguments for the selected tool.
+
+    See: https://platform.openai.com/docs/guides/function-calling
+    """
     print(
-        f"{Fore.LIGHTGREEN_EX}\nDeciding log search parameters based on user request...\n"
+        f"{Fore.LIGHTGREEN_EX}\nDeciding log search parameters "
+        f"based on user request...\n"
     )
 
     system_message = prompt_management.SYSTEM_PROMPT_TOOL_SELECTION
@@ -98,7 +216,24 @@ def query_log_analytics(
     caller,
     user_principal_name,
 ):
+    """
+    Query Azure Log Analytics for threat hunting data.
 
+    Constructs and executes a KQL query based on the specified parameters.
+
+    Args:
+        log_analytics_client: The Azure Log Analytics client.
+        workspace_id (str): The Log Analytics workspace ID.
+        timerange_hours (int): Number of hours to query back.
+        table_name (str): The table to query.
+        device_name (str): Device name to filter by.
+        fields (str): Comma-separated list of fields to project.
+        caller (str): Caller to filter by for AzureActivity table.
+        user_principal_name (str): User principal name for SigninLogs.
+
+    Returns:
+        dict: Contains 'records' (CSV string) and 'count' (number of records).
+    """
     if table_name == "AzureNetworkAnalytics_CL":
         user_query = f"""{table_name}
 | where FlowType_s == "MaliciousFlow"
@@ -124,7 +259,8 @@ def query_log_analytics(
     print(f"{Fore.WHITE}{user_query}\n")
 
     print(
-        f"{Fore.LIGHTGREEN_EX}Querying Log Analytics Workspace ID: '{workspace_id}'..."
+        f"{Fore.LIGHTGREEN_EX}Querying Log Analytics Workspace ID: "
+        f"'{workspace_id}'..."
     )
 
     response = log_analytics_client.query_workspace(

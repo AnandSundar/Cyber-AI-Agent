@@ -1,9 +1,36 @@
-"""
-This module contains security guardrails and validation logic for the Cyber AI Agent.
-It defines allowed tables, fields, and models to ensure safe and authorized operations.
+"""Guardrails module for validating tables, fields, and models.
+
+This module provides validation functions to ensure that database tables,
+fields, and AI models used in the application are within allowed lists.
+It helps prevent SQL injection and unauthorized operations by restricting
+operations to predefined safe values.
 """
 
+import sys
+from typing import TypedDict
+
 from colorama import Fore, Style
+
+
+class TierLimits(TypedDict):
+    """Type definition for tier-based TPM limits."""
+
+    free: int | None
+    tier1: int | None
+    tier2: int | None
+    tier3: int | None
+    tier4: int | None
+    tier5: int | None
+
+
+class ModelInfo(TypedDict):
+    """Type definition for model information."""
+
+    max_input_tokens: int
+    max_output_tokens: int
+    cost_per_million_input: float
+    cost_per_million_output: float
+    tier: dict[str, int | None]
 
 
 # TODO: Provide allowed fields later
@@ -77,7 +104,8 @@ ALLOWED_TABLES = {
     },
 }
 
-ALLOWED_MODELS = {
+# https://platform.openai.com/docs/models/compare
+ALLOWED_MODELS: dict[str, ModelInfo] = {
     "gpt-4.1-nano": {
         "max_input_tokens": 1_047_576,
         "max_output_tokens": 32_768,
@@ -139,58 +167,65 @@ ALLOWED_MODELS = {
 
 def validate_tables_and_fields(table, fields):
     """
-    Validates if the specified table and its associated fields are in the allowed list.
+    Validate that the specified table and fields are in the allowed lists.
+
+    This function checks if the provided table exists in ALLOWED_TABLES and
+    verifies that each field in the comma-separated fields string is permitted
+    for that table. If any validation fails, the program exits with an error.
 
     Args:
         table (str): The name of the table to validate.
         fields (str): A comma-separated string of field names to validate.
 
-    Exits:
-        1: If the table or any of the fields are not in the ALLOWED_TABLES dictionary.
+    Raises:
+        SystemExit: If the table or any field is not in the allowed lists.
     """
-
     print(f"{Fore.LIGHTGREEN_EX}Validating Tables and Fields...")
     if table not in ALLOWED_TABLES:
         print(
-            f"{Fore.RED}{Style.BRIGHT}ERROR:{Style.RESET_ALL} Table '{table}' "
-            f"is not in allowed list — {Fore.RED}{Style.BRIGHT}exiting.{Style.RESET_ALL}"
+            f"{Fore.RED}{Style.BRIGHT}ERROR: Table '{table}' is not in allowed "
+            f"list — {Fore.RED}{Style.BRIGHT}{Style.RESET_ALL}exiting."
         )
-        exit(1)
+        sys.exit(1)
 
     fields = fields.replace(" ", "").split(",")
 
     for field in fields:
         if field not in ALLOWED_TABLES[table]:
             print(
-                f"{Fore.RED}{Style.BRIGHT}WARNING:{Style.RESET_ALL} Field '{field}' "
-                f"is not in allowed list for Table '{table}' — "
-                f"{Fore.RED}{Style.BRIGHT}exiting.{Style.RESET_ALL}"
+                f"{Fore.RED}{Style.BRIGHT}ERROR: Field '{field}' is not in "
+                f"allowed list for Table '{table}' — "
+                f"{Fore.RED}{Style.BRIGHT}{Style.RESET_ALL}exiting."
             )
-            exit(1)
+            sys.exit(1)
 
     print(
         f"{Fore.WHITE}Fields and tables have been validated and comply "
-        "with the allowed guidelines.\n"
+        f"with the allowed guidelines.\n"
     )
 
 
 def validate_model(model):
     """
-    Validates if the specified model is in the allowed list.
+    Validate that the specified model is in the allowed models list.
+
+    This function checks if the provided model name exists in ALLOWED_MODELS.
+    If the model is not allowed, the program exits with an error message.
 
     Args:
         model (str): The name of the model to validate.
 
     Raises:
-        SystemExit: If the model is not in the ALLOWED_MODELS dictionary.
+        SystemExit: If the model is not in the allowed models list.
     """
     if model not in ALLOWED_MODELS:
         print(
-            f"{Fore.RED}{Style.BRIGHT}ERROR:{Style.RESET_ALL} Model '{model}' "
-            f"is not allowed — {Fore.RED}{Style.BRIGHT}exiting.{Style.RESET_ALL}"
+            f"{Fore.RED}{Style.BRIGHT}ERROR: Model '{model}' is not allowed — "
+            f"{Fore.RED}{Style.BRIGHT}{Style.RESET_ALL}exiting."
         )
-        raise SystemExit(1)
+        sys.exit(1)
     else:
         print(
-            f"{Fore.LIGHTGREEN_EX}Selected model is valid: {Fore.CYAN}{model}\n{Style.RESET_ALL}"
+            f"{Fore.LIGHTGREEN_EX}Selected model is valid: "
+            f"{Fore.CYAN}{model}\n{Style.RESET_ALL}"
         )

@@ -1,54 +1,25 @@
-"""Utilities module for Cyber AI Agent.
-
-This module provides utility functions for:
-- Displaying query context and rationale
-- Displaying and logging detected threats
-- Sanitizing user input to prevent injection attacks
-- Appending threat data to JSONL files
-"""
-
 import json
 from colorama import Fore, Style, init
 
 
 def display_query_context(query_context):
-    """Display the finalized log search parameters.
-
-    Args:
-        query_context: Dictionary containing query parameters including
-                      table_name, time_range_hours, fields, device_name, and caller.
-    """
-    print(f"{Fore.LIGHTGREEN_EX}Log search parameters finalized:")
-    print(f"{Fore.WHITE}Table Name: {query_context.get('table_name', 'N/A')}")
-    print(
-        f"{Fore.WHITE}Time Range: {query_context.get('time_range_hours', 'N/A')} hour(s)"
-    )
-    print(f"{Fore.WHITE}Fields:     {query_context.get('fields', 'N/A')}")
-    if query_context.get("device_name", "") != "":
-        print(f"{Fore.WHITE}Device:     {query_context['device_name']}")
-    if query_context.get("caller", "") != "":
-        print(f"{Fore.WHITE}Caller:     {query_context['caller']}")
-    print()
-
-
-def display_query_context_rationale(query_context):
-    """Display the rationale for log search parameter selection.
-
-    Args:
-        query_context: Dictionary containing the rationale for the query.
-    """
-    print(f"{Fore.LIGHTGREEN_EX}Rationale for log search parameters selection:")
-    print(f"{Fore.WHITE}{query_context.get('rationale', 'No rationale provided')}")
-    print()
+    print(f"{Fore.LIGHTGREEN_EX}Query context and metadata:")
+    print(f"{Fore.WHITE}Table Name:   {query_context['table_name']}")
+    print(f"{Fore.WHITE}Time Range:   {query_context['time_range_hours']} hour(s)")
+    print(f"{Fore.WHITE}Fields:       {query_context['fields']}")
+    if query_context["device_name"] != "":
+        print(f"{Fore.WHITE}Device:       {query_context['device_name']}")
+    if query_context["caller"] != "":
+        print(f"{Fore.WHITE}Caller:       {query_context['caller']}")
+    if query_context["user_principal_name"] != "":
+        print(f"{Fore.WHITE}Username:     {query_context['user_principal_name']}")
+    print(f"{Fore.WHITE}User Related: {query_context['about_individual_user']}")
+    print(f"{Fore.WHITE}Host Related: {query_context['about_individual_host']}")
+    print(f"{Fore.WHITE}NSG Related:  {query_context['about_network_security_group']}")
+    print(f"{Fore.WHITE}Rationale:\n{query_context['rationale']}\n")
 
 
 def display_threats(threat_list):
-    """Display and log detected threats.
-
-    Args:
-        threat_list: List of threat dictionaries containing title, description,
-                    confidence, MITRE info, log lines, IOCs, tags, and recommendations.
-    """
     count = 0
     for threat in threat_list:
         count += 1
@@ -102,12 +73,6 @@ def display_threats(threat_list):
 
 
 def append_threats_to_jsonl(threat_list, filename="_threats.jsonl"):
-    """Append threats to a JSONL file.
-
-    Args:
-        threat_list: List of threat dictionaries to write.
-        filename: Output filename for JSONL file. Defaults to "_threats.jsonl".
-    """
     count = 0
     with open(filename, "a", encoding="utf-8") as f:
         for threat in threat_list:
@@ -118,29 +83,10 @@ def append_threats_to_jsonl(threat_list, filename="_threats.jsonl"):
 
 
 def sanitize_literal(s: str) -> str:
-    """Sanitize a string literal by removing potentially dangerous characters.
-
-    Args:
-        s: The input string to sanitize.
-
-    Returns:
-        Sanitized string with pipe, newline, and semicolon characters replaced.
-    """
     return str(s).replace("|", " ").replace("\n", " ").replace(";", " ")
 
 
 def sanitize_query_context(query_context):
-    """Sanitize and validate query context dictionary.
-
-    Ensures all required keys exist with default values and sanitizes
-    user input fields to prevent injection attacks.
-
-    Args:
-        query_context: Dictionary containing query parameters.
-
-    Returns:
-        Sanitized query_context dictionary with all required keys present.
-    """
     if "caller" not in query_context:
         query_context["caller"] = ""
 
@@ -161,6 +107,6 @@ def sanitize_query_context(query_context):
             query_context["user_principal_name"]
         )
 
-    query_context["fields"] = ", ".join(query_context.get("fields", []))
+    query_context["fields"] = ", ".join(query_context["fields"])
 
     return query_context

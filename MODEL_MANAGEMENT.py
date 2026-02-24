@@ -1,5 +1,7 @@
-"""
-Module for managing AI model selection, cost estimation, and rate limit assessment.
+"""Model management module for OpenAI model selection and token counting.
+
+This module provides utilities for managing OpenAI model selection, tracking
+token usage limits, estimating costs, and interactive model selection.
 """
 
 from colorama import Fore, Style
@@ -9,19 +11,35 @@ import guardrails
 # ---- Settings ---------------------------------------------------------------
 
 # https://platform.openai.com/settings/organization/limits
-CURRENT_TIER = "1"  # Valid: "free", "1", "2", "3", "4", "5"
+CURRENT_TIER = "4"  # "free", "1", "2", "3", "4", "5"
 DEFAULT_MODEL = "gpt-5-mini"
 WARNING_RATIO = 0.80  # 80%
 
 
 def money(usd):
-    """Formats a float value as a currency string (USD)."""
+    """
+    Format a USD amount as a string with appropriate precision.
+
+    Args:
+        usd (float): The amount in USD.
+
+    Returns:
+        str: Formatted dollar string with 6 decimals for small amounts,
+             2 decimals otherwise.
+    """
     return f"${usd:.6f}" if usd < 0.01 else f"${usd:.2f}"
 
 
 def color_for_usage(used, limit):
     """
-    Determine the Fore color code based on how much of the limit has been consumed.
+    Determine the appropriate color based on usage relative to limit.
+
+    Args:
+        used (int): The amount used.
+        limit (int or None): The limit, or None for unlimited.
+
+    Returns:
+        str: The colorama color code to use.
     """
     if limit is None:
         return Fore.LIGHTGREEN_EX
@@ -34,7 +52,15 @@ def color_for_usage(used, limit):
 
 def colorize(label, used, limit):
     """
-    Return a color-coded string representing usage against a limit.
+    Create a colored usage string showing used/limit.
+
+    Args:
+        label (str): The label for the usage metric.
+        used (int): The amount used.
+        limit (int or None): The limit, or None for unlimited.
+
+    Returns:
+        str: Formatted and colored usage string.
     """
     col = color_for_usage(used, limit)
     lim = "∞" if limit is None else str(limit)
@@ -43,7 +69,15 @@ def colorize(label, used, limit):
 
 def estimate_cost(input_tokens, output_tokens, model_info):
     """
-    Estimate the total cost of a request based on token counts and model pricing.
+    Estimate the cost for a given number of input and output tokens.
+
+    Args:
+        input_tokens (int): Number of input tokens.
+        output_tokens (int): Number of output tokens.
+        model_info (dict): Model information containing cost per million.
+
+    Returns:
+        float: Estimated cost in USD.
     """
     cin = input_tokens * model_info["cost_per_million_input"] / 1_000_000.0
     cout = output_tokens * model_info["cost_per_million_output"] / 1_000_000.0
@@ -52,59 +86,66 @@ def estimate_cost(input_tokens, output_tokens, model_info):
 
 def print_model_table(input_tokens, current_model, tier, assumed_output_tokens=500):
     """
-    Print a comparison table of available models, their limits, and estimated costs.
+    Print a table of all models with their limits and estimated costs.
+
+    Args:
+        input_tokens (int): Number of input tokens to estimate for.
+        current_model (str): The currently selected model name.
+        tier (str): The current usage tier.
+        assumed_output_tokens (int): Assumed output tokens for cost estimate.
     """
     print(f"Model limits and estimated total cost:{Fore.WHITE}\n")
     for name, info in guardrails.ALLOWED_MODELS.items():
-        tier_data = info.get("tier", {})
-        tpm_limit = tier_data.get(tier) if isinstance(tier_data, dict) else None
+        tpm_limit = info["tier"].get(tier)
         usage_text = colorize("input limit", input_tokens, info["max_input_tokens"])
         tpm_text = colorize("rate_limit", input_tokens, tpm_limit)
         est = estimate_cost(input_tokens, assumed_output_tokens, info)
         tag = f"{Fore.CYAN} <-- (current){Fore.WHITE}" if name == current_model else ""
         print(
-            f"{name:<12} | {usage_text:<35} | {tpm_text:<32} | out_max: {info['max_output_tokens']:<6} | est_cost: {money(est)}{tag}"
+            f"{name:<12} | {usage_text:<35} | {tpm_text:<32} | "
+            f"out_max: {info['max_output_tokens']:<6} | "
+            f"est_cost: {money(est)}{tag}"
         )
     print("")
 
 
 def assess_limits(model_name, input_tokens, tier):
     """
-    Evaluate if the current input tokens exceed the hard limits or tier-based TPM limits.
+    Assess and print warnings about token limits for a model.
+
+    Args:
+        model_name (str): The model name to assess.
+        input_tokens (int): Number of input tokens.
+        tier (str): The current usage tier.
     """
     info = guardrails.ALLOWED_MODELS[model_name]
     msgs = []
 
     # Input cap
-    max_input_tokens = info.get("max_input_tokens", 0)
-    # Ensure max_input_tokens is treated as a number (int/float), not a dict
-    if not isinstance(max_input_tokens, (int, float)):
-        max_input_tokens = 0
-    usage_txt = colorize("input limit", input_tokens, max_input_tokens)
-    if input_tokens > max_input_tokens:
+    usage_txt = colorize("input limit", input_tokens, info["max_input_tokens"])
+    if input_tokens > info["max_input_tokens"]:
         msgs.append(f"🚨 ERROR: {usage_txt} exceeds the input limit for {model_name}.")
-    elif input_tokens >= WARNING_RATIO * max_input_tokens:
+    elif input_tokens >= WARNING_RATIO * info["max_input_tokens"]:
         msgs.append(
-            f"⚠️ WARNING: {usage_txt} is at least 80% of the input limit for {model_name}."
+            f"⚠️ WARNING: {usage_txt} is at least 80% of the input limit "
+            f"for {model_name}."
         )
     else:
         msgs.append(f"✅ Safe: {usage_txt} is within the input limit for {model_name}.")
 
     # TPM cap
-    tier_data = info.get("tier", {})
-    tpm_limit = tier_data.get(tier) if isinstance(tier_data, dict) else None
-    # Ensure tpm_limit is a valid number (int or float), not None or a dict
-    if tpm_limit is not None and not isinstance(tpm_limit, (int, float)):
-        tpm_limit = None
+    tpm_limit = info["tier"].get(tier)
     tpm_txt = colorize("rate_limit", input_tokens, tpm_limit)
-    if tpm_limit is not None and isinstance(tpm_limit, (int, float)):
+    if tpm_limit is not None:
         if input_tokens > tpm_limit:
             msgs.append(
-                f"⚠️ WARNING: {tpm_txt} exceeds the TPM rate limit for {model_name} ({tpm_limit}) — may be too large."
+                f"⚠️ WARNING: {tpm_txt} exceeds the TPM rate limit for "
+                f"{model_name} ({tpm_limit}) — may be too large."
             )
         elif input_tokens >= WARNING_RATIO * tpm_limit:
             msgs.append(
-                f"⚠️ WARNING: {tpm_txt} is at least 80% of the TPM rate limit for {model_name}."
+                f"⚠️ WARNING: {tpm_txt} is at least 80% of the TPM rate "
+                f"limit for {model_name}."
             )
         else:
             msgs.append(
@@ -113,7 +154,7 @@ def assess_limits(model_name, input_tokens, tier):
     else:
         msgs.append(f"ℹ️ No TPM tier limit known for {model_name} at tier '{tier}'.")
 
-    if input_tokens > max_input_tokens or (
+    if input_tokens > info["max_input_tokens"] or (
         tpm_limit is not None and input_tokens > tpm_limit
     ):
         msgs += [
@@ -136,7 +177,17 @@ def choose_model(
     interactive=True,
 ):
     """
-    High-level flow to select a model and verify it can handle the current token load.
+    Interactively select an OpenAI model with limit checking.
+
+    Args:
+        model_name (str): The initial model name to use.
+        input_tokens (int): Number of input tokens.
+        tier (str): The current usage tier.
+        assumed_output_tokens (int): Assumed output tokens for cost estimate.
+        interactive (bool): Whether to prompt for user input.
+
+    Returns:
+        str: The selected model name.
     """
     if model_name not in guardrails.ALLOWED_MODELS:
         print(
@@ -154,22 +205,24 @@ def choose_model(
         return model_name
 
     while True:
-        prompt = f"{Fore.WHITE}Continue with '{model_name}'? (Enter to continue / type a model name / 'list'):{Fore.WHITE} "
+        prompt = (
+            f"{Fore.WHITE}Continue with '{model_name}'? "
+            f"(Enter to continue / type a model name / 'list'):{Fore.WHITE} "
+        )
         choice = input(prompt).strip()
 
         if choice == "" or choice.lower() in {"y", "yes", "continue", "c"}:
             info = guardrails.ALLOWED_MODELS[model_name]
-            tier_data = info.get("tier", {})
-            tpm_limit = tier_data.get(tier) if isinstance(tier_data, dict) else None
+            tpm_limit = info["tier"].get(tier)
             over_input = input_tokens > info["max_input_tokens"]
             over_tpm = (tpm_limit is not None) and (input_tokens > tpm_limit)
 
             if over_input or over_tpm:
                 msg = "input limit" if over_input else "TPM rate limit"
                 print(
-                    f"{Fore.YELLOW}⚠️ WARNING: input may exceed {model_name}'s {msg}.\n{Fore.WHITE}"
+                    f"{Fore.YELLOW}⚠️ WARNING: input may exceed "
+                    f"{model_name}'s {msg}.\n{Fore.WHITE}"
                 )
-                # continue
             return model_name
 
         if choice.lower() in {"list", "models"}:
@@ -189,13 +242,24 @@ def choose_model(
             continue
 
         print(
-            "Press Enter to continue, type a valid model name, or 'list' to see options."
+            "Press Enter to continue, type a valid model name, "
+            "or 'list' to see options."
         )
 
 
 def count_tokens(messages, model):
     """
-    Cheap estimate for chat messages.
+    Estimate the token count for a list of chat messages.
+
+    Uses tiktoken to count tokens, falling back to cl100k_base encoding
+    if the model is not recognized.
+
+    Args:
+        messages (list): List of message dictionaries with 'role' and 'content'.
+        model (str): The model name to use for tokenization.
+
+    Returns:
+        int: The estimated token count.
     """
     try:
         enc = tiktoken.encoding_for_model(model)
