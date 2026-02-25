@@ -199,9 +199,24 @@ def get_query_context(openai_client, user_message, model):
         tool_choice="required",
     )
 
-    # TODO: Fix this (if there are no returns)
-    function_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(function_call.function.arguments)
+    # Check if tool calls exist in the response
+    if response.choices[0].message.tool_calls:
+        function_call = response.choices[0].message.tool_calls[0]
+        args = json.loads(function_call.function.arguments)
+    else:
+        # Handle case where no tool call is returned
+        args = {
+            "table_name": "",
+            "device_name": "",
+            "caller": "",
+            "user_principal_name": "",
+            "time_range_hours": 96,
+            "fields": [],
+            "about_individual_user": False,
+            "about_individual_host": False,
+            "about_network_security_group": False,
+            "rationale": "No specific query context could be determined from the user's input",
+        }
 
     return args  # or return function_call, args
 

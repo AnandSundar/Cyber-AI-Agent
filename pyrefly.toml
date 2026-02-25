@@ -1,4 +1,4 @@
 [tool.pyrefly]
 project_includes = ["."]
 python_version = "3.13"
-search_path = ["."]
+search_path = [".", "C:\\Users\\HP\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\site-packages"]
