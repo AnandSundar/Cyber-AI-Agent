@@ -72,13 +72,6 @@ The click-next analyst era is ending. The AI-augmented analyst era is already he
 
 ---
 
-## Bottom Line
-
-This isn't a tool that assists analysts. It's a system that *operates independently* and surfaces work for humans to approve, escalate, or close. The bar for what a SOC analyst needs to bring to the table just got significantly higher — and the organizations that deploy this well will run leaner, faster, and with better detection coverage than those that don't.
-
-**The threat landscape isn't slowing down. Neither should your SOC.**
-
-
 ## 💥 The Controversial Part
 
 * Companies won't need as many entry-level analysts — **AI will fill that gap**.
@@ -283,6 +276,14 @@ Cognitive hunt complete. Took 12.34 seconds and found 3 potential threat(s)!
 
 ---
 
+## Bottom Line
+
+This isn't a tool that assists analysts. It's a system that *operates independently* and surfaces work for humans to approve, escalate, or close. The bar for what a SOC analyst needs to bring to the table just got significantly higher — and the organizations that deploy this well will run leaner, faster, and with better detection coverage than those that don't.
+
+**The threat landscape isn't slowing down. Neither should your SOC.**
+
+---
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -307,6 +308,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 `#SOC` `#ThreatHunting` `#AI` `#Cybersecurity` `#OpenAI` `#Azure` `#MicrosoftDefender` `#MITRE` `#Automation`
 
----
-
-Youtube Video: [https://www.youtube.com/watch?v=vFuM--0H3qE](https://www.youtube.com/watch?v=oWa5Wxb8w-o)
