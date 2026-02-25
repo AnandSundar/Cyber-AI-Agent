@@ -5,4 +5,5 @@ azure-monitor-query
 pandas
 tiktoken
 colorama
+fpdf2
 

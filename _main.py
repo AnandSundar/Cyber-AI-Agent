@@ -138,6 +138,27 @@ input(
 # Display the threat hunt analysis results.
 utilities.display_threats(threat_list=hunt_results["findings"])
 
+# Export findings to multiple formats
+if hunt_results["findings"]:
+    export_choice = (
+        input(
+            f"\n{Fore.WHITE}Export findings? "
+            f"({Fore.LIGHTGREEN_EX}json{Fore.WHITE}/{Fore.LIGHTGREEN_EX}csv{Fore.WHITE}/"
+            f"{Fore.LIGHTGREEN_EX}markdown{Fore.WHITE}/{Fore.LIGHTGREEN_EX}pdf{Fore.WHITE}/"
+            f"{Fore.LIGHTRED_EX}skip{Fore.WHITE}): "
+        )
+        .strip()
+        .lower()
+    )
+
+    if export_choice in ["json", "csv", "markdown", "pdf"]:
+        utilities.export_findings(
+            findings=hunt_results["findings"],
+            export_format=export_choice,
+            filename=f"threat_report_{int(time.time())}",
+            query_context=query_context,
+        )
+
 token = executor.get_bearer_token()
 
 machine_is_isolated = False
