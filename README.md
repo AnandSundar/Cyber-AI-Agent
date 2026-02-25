@@ -79,12 +79,6 @@ The click-next analyst era is ending. The AI-augmented analyst era is already he
 
 ---
 
-## 🎥 Demo
-
-Check out the demo video of the Agentic AI in action — doing the work *with me*, not *for me*.
-
----
-
 ## 🏗️ Architecture
 
 ```mermaid
