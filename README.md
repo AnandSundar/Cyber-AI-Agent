@@ -1,7 +1,8 @@
 # 🔥 Agentic AI SOC Analyst & Threat Hunter
 
 
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/16d81755-21c1-4ddf-8c71-ec121dbf085b" />
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/167e75df-efed-4d1b-8807-1b41d3abe43c" />
+
 
 
 
