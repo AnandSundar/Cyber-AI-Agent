@@ -1,5 +1,10 @@
 # 🔥 Agentic AI SOC Analyst & Threat Hunter
 
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/16d81755-21c1-4ddf-8c71-ec121dbf085b" />
+
+
+
 > *"AI will replace bad SOC analysts. Not good ones."*
 
 Hours of manual work, done in minutes. This agentic system operates across your entire threat surface — autonomously hunting, scoring, documenting, and acting — without waiting for a human to notice something is wrong.
