@@ -327,6 +327,30 @@ def _export_to_pdf(
         print(f"{Fore.LIGHTGREEN_EX}Falling back to Markdown export...")
         return _export_to_markdown(findings, filename, query_context)
 
+    # Helper function to sanitize text for PDF
+    def sanitize_for_pdf(text: str) -> str:
+        """Replace Unicode characters that fpdf can't handle."""
+        if not text:
+            return ""
+        # Replace common Unicode characters with ASCII equivalents
+        replacements = {
+            "—": "-",  # em dash
+            "–": "-",  # en dash
+            '"': '"',  # smart quotes
+            '"': '"',
+            "'": "'",
+            "'": "'",
+            "...": "...",  # ellipsis
+            "\u2022": "*",  # bullet
+            "\u2026": "...",
+        }
+        result = text
+        for uni, ascii_val in replacements.items():
+            result = result.replace(uni, ascii_val)
+        # Remove any remaining non-ASCII characters
+        result = result.encode("ascii", "ignore").decode("ascii")
+        return result
+
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
@@ -366,7 +390,7 @@ def _export_to_pdf(
 
         # Title
         pdf.set_font("Helvetica", "B", 14)
-        title = finding.get("title", "Untitled")[:80]  # Truncate long titles
+        title = sanitize_for_pdf(finding.get("title", "Untitled")[:80])
         pdf.cell(0, 10, f"Finding #{i}: {title}", ln=True)
 
         # Confidence
@@ -379,8 +403,8 @@ def _export_to_pdf(
         pdf.set_font("Helvetica", "B", 10)
         pdf.cell(0, 6, "Description:", ln=True)
         pdf.set_font("Helvetica", "", 9)
-        description = finding.get("description", "N/A")
-        pdf.multi_cell(0, 5, description[:500])  # Truncate long descriptions
+        description = sanitize_for_pdf(finding.get("description", "N/A")[:500])
+        pdf.multi_cell(0, 5, description)
         pdf.ln(3)
 
         # MITRE
@@ -389,8 +413,18 @@ def _export_to_pdf(
             pdf.set_font("Helvetica", "B", 10)
             pdf.cell(0, 6, "MITRE ATT&CK:", ln=True)
             pdf.set_font("Helvetica", "", 9)
-            pdf.cell(0, 5, f"  Tactic: {mitre.get('tactic', 'N/A')}", ln=True)
-            pdf.cell(0, 5, f"  Technique: {mitre.get('technique', 'N/A')}", ln=True)
+            pdf.cell(
+                0,
+                5,
+                f"  Tactic: {sanitize_for_pdf(mitre.get('tactic', 'N/A'))}",
+                ln=True,
+            )
+            pdf.cell(
+                0,
+                5,
+                f"  Technique: {sanitize_for_pdf(mitre.get('technique', 'N/A'))}",
+                ln=True,
+            )
             pdf.cell(0, 5, f"  ID: {mitre.get('id', 'N/A')}", ln=True)
             pdf.ln(3)
 
@@ -401,7 +435,7 @@ def _export_to_pdf(
             pdf.cell(0, 6, "Indicators of Compromise:", ln=True)
             pdf.set_font("Helvetica", "", 9)
             for ioc in iocs[:10]:  # Limit to 10 IOCs
-                pdf.cell(0, 5, f"  - {ioc}", ln=True)
+                pdf.cell(0, 5, f"  - {sanitize_for_pdf(str(ioc))}", ln=True)
             pdf.ln(3)
 
         # Recommendations
@@ -411,7 +445,7 @@ def _export_to_pdf(
             pdf.cell(0, 6, "Recommendations:", ln=True)
             pdf.set_font("Helvetica", "", 9)
             for rec in recommendations:
-                pdf.cell(0, 5, f"  - {rec}", ln=True)
+                pdf.cell(0, 5, f"  - {sanitize_for_pdf(str(rec))}", ln=True)
 
     pdf.output(output_path)
     print(f"{Fore.LIGHTGREEN_EX}Exported {len(findings)} findings to {output_path}")

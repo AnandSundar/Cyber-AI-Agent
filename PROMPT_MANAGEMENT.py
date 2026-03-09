@@ -1,5 +1,14 @@
 from colorama import Fore
 
+# Hunt configuration for iterative hunting
+HUNT_CONFIG = {
+    "enable_iterative_hunting": True,  # Enable/disable iterative IOC pivot hunting
+    "max_iterations": 3,  # Max IOC pivot rounds
+    "max_iocs_per_finding": 3,  # Max IOCs to pivot per finding
+    "pivot_time_window_hours": 96,  # Lookback for pivot queries
+    "confidence_threshold": "Low",  # Minimum confidence to pivot
+}
+
 FORMATTING_INSTRUCTIONS = """
 Return your findings in the following format:
 {

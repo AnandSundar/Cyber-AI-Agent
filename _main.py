@@ -107,8 +107,10 @@ print(f"{Fore.LIGHTGREEN_EX}Initiating cognitive threat hunt against target logs
 # Grab the time the analysis started for calculating analysis duration
 start_time = time.time()
 
-# Execute the threat hunt
-hunt_results = executor.hunt(
+# Run initial threat hunt
+print(f"{Fore.LIGHTGREEN_EX}Running initial threat hunt...\n")
+
+initial_hunt_results = executor.hunt(
     openai_client=openai_client,
     threat_hunt_system_message=prompt_management.SYSTEM_PROMPT_THREAT_HUNT,
     threat_hunt_user_message=threat_hunt_user_message,
@@ -116,8 +118,26 @@ hunt_results = executor.hunt(
 )
 
 # Exit if no hunt results are returned
-if not hunt_results:
+if not initial_hunt_results:
     sys.exit(1)
+
+# Run iterative IOC pivot hunting if enabled
+if prompt_management.HUNT_CONFIG.get("enable_iterative_hunting", True):
+    print(f"{Fore.LIGHTGREEN_EX}Running iterative IOC pivot hunting...\n")
+
+    all_findings = executor.iterative_hunt(
+        openai_client=openai_client,
+        log_analytics_client=law_client,
+        workspace_id=os.getenv("LOG_ANALYTICS_WORKSPACE_ID"),
+        initial_findings=initial_hunt_results["findings"],
+        original_query_context=query_context,
+        openai_model=model,
+        max_iterations=int(prompt_management.HUNT_CONFIG.get("max_iterations", 3)),
+    )
+
+    hunt_results = {"findings": all_findings}
+else:
+    hunt_results = initial_hunt_results
 
 # Grab the time the analysis finished and calculated the total time elapsed
 elapsed = time.time() - start_time
