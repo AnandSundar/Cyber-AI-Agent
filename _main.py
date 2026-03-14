@@ -182,7 +182,6 @@ if hunt_results["findings"]:
 token = executor.get_bearer_token()
 
 machine_is_isolated = False
-USER_ACCOUNT_IS_DISABLED = False
 
 query_is_about_individual_host = query_context["about_individual_host"]
 query_is_about_individual_user = query_context["about_individual_user"]
@@ -220,6 +219,7 @@ for threat in hunt_results["findings"]:
                 machine_id = executor.get_mde_workstation_id_from_name(
                     token=token, device_name=query_context["device_name"]
                 )
+                # Quarantine functionality temporarily disabled pending API integration
                 # machine_is_isolated = executor.quarantine_virtual_machine(
                 #     token=token, machine_id=machine_id
                 # )
@@ -238,9 +238,11 @@ for threat in hunt_results["findings"]:
                 print(Fore.CYAN + "[i] Isolation skipped by user." + Style.RESET_ALL)
 
     # Block of code for dealing with user related threats
+    # TODO: Implement user account disablement logic (e.g., disable via Microsoft Graph API)
     elif query_is_about_individual_user:
         pass
 
     # Block of code for dealing with NSG related threats
+    # TODO: Implement NSG rule modification logic (e.g., block traffic via Azure Network Security Group)
     elif query_is_about_nsg:
         pass
